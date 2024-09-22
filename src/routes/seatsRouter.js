@@ -1,17 +1,15 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../config/connection");
-
-// Read all
+const seatsController = require("../controllers/seatsController");
 
 /**
  * @openapi
- * /api/asientos:
+ * /api/seats:
  *   get:
  *     summary: obtiene todos los asientos
  *     description: Obtiene todas los asientos.
  *     tags:
- *       - Asientos
+ *       - Seats
  *     responses:
  *       200:
  *         description: Lista de de comentarios.
@@ -37,24 +35,16 @@ const pool = require("../config/connection");
  *       500:
  *         description: Error al obtener las notificaciones.
  */
-router.get("/", async (req, res) => {
-  try {
-    const [rows, fields] = await pool.query("SELECT * FROM Asientos");
-    res.json(rows);
-  } catch (error) {
-    console.error(error);
-  }
-});
-
+router.get("/", seatsController.getAllSeats);
 
 /**
  * @openapi
- * /api/asientos/{id}:
+ * /api/seats/{id}:
  *   get:
  *     summary: obtiene el asiento por id
  *     description: Obtiene un asiento por su ID.
  *     tags:
- *       - Asientos
+ *       - Seats
  *     parameters:
  *       - name: id
  *         in: path
@@ -87,30 +77,15 @@ router.get("/", async (req, res) => {
  *       500:
  *         description: Error al obtener el asiento.
  */
-router.get("/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    const [rows, fields] = await pool.query(
-      "SELECT * FROM Asientos WHERE asiento_id = ?",
-      [id]
-    );
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Asiento no encontrado" });
-    }
-    res.json(rows[0]);
-  } catch (error) {
-    console.error(error);
-  }
-});
-
+router.get("/:id", seatsController.getSeatById);
 
 /**
  * @swagger
- * /api/asientos:
+ * /api/seats:
  *   post:
  *     summary: Registrar un nuevo Asiento
- *     tags: 
- *       - Asientos
+ *     tags:
+ *       - Seats
  *     requestBody:
  *       required: true
  *       content:
@@ -139,51 +114,15 @@ router.get("/:id", async (req, res) => {
  *       500:
  *         description: Error creating user
  */
-router.post("/", async (req, res) => {
-  const { numero_asiento, estado, usuario_id } = req.body;
-  if (!numero_asiento || !estado || !usuario_id) {
-    return res.status(400).json({
-      error: "numero_asiento, estado y usuario_id son campos requeridos",
-    });
-  }
-
-  try {
-    const [usuarios] = await pool.query(
-      "SELECT * FROM Usuarios WHERE usuario_id = ?",
-      [usuario_id]
-    );
-    if (usuarios.length === 0) {
-      return res
-        .status(404)
-        .json({ error: `Usuario con el id ${usuario_id} no encontrado` });
-    }
-
-    const [rows, fields] = await pool.query(
-      "INSERT INTO Asientos (numero_asiento, estado, usuario_id) VALUES (?, ?, ?)",
-      [numero_asiento, estado, usuario_id]
-    );
-    res.json({
-      message: "Asiento creado exitosamente",
-      asiento: {
-        asiento_id: rows.insertId,
-        numero_asiento,
-        estado,
-        usuario_id,
-      },
-    });
-  } catch (error) {
-    console.error(error);
-  }
-});
-
+router.post("/", seatsController.createSeat);
 
 /**
  * @openapi
- * /api/asientos/{id}:
+ * /api/seats/{id}:
  *   put:
  *     summary: edita un asiento
- *     tags: 
- *       - Asientos
+ *     tags:
+ *       - Seats
  *     parameters:
  *       - in: path
  *         name: id
@@ -219,70 +158,15 @@ router.post("/", async (req, res) => {
  *       500:
  *         description: Internal server error
  */
-router.put("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [asientos] = await pool.query(
-      "SELECT * FROM Asientos WHERE asiento_id = ?",
-      [id]
-    );
-
-    if (asientos.length === 0) {
-      return res.status(404).json({ error: "Asiento no encontrado" });
-    }
-
-    const asiento = asientos[0];
-
-    const numero_asiento = req.body.numero_asiento || asiento.numero_asiento;
-    const estado = req.body.estado || asiento.estado;
-    let usuario_id = undefined;
-
-    if (req.body.usuario_id) {
-      usuario_id = req.body.usuario_id;
-      const [usuarioss] = await pool.query(
-        "SELECT * FROM Usuarios WHERE usuario_id = ?",
-        [usuario_id]
-      );
-      if (usuarioss.length === 0) {
-        return res
-          .status(404)
-          .json({ error: `Usuario con el id ${usuario_id} no encontrado` });
-      }
-    } else {
-      usuario_id = asiento.usuario_id;
-    }
-    const values = [numero_asiento, estado, usuario_id];
-
-    const [result] = await pool.query(
-      "UPDATE Asientos SET numero_asiento = ?, estado = ?, usuario_id = ? WHERE asiento_id = ?",
-      [...values, id]
-    );
-
-    if (result.affectedRows > 0) {
-      const [updatedAsientos] = await pool.query(
-        "SELECT * FROM Asientos WHERE asiento_id = ?",
-        [id]
-      );
-      const updatedAsiento = updatedAsientos[0];
-
-      res.status(200).json({
-        message: "Asiento actualizado exitosamente",
-        asiento: updatedAsiento,
-      });
-    }
-  } catch (error) {
-    console.error(error);
-  }
-});
-
+router.put("/:id", seatsController.updateSeat);
 
 /**
  * @openapi
- * /api/asientos/{id}:
+ * /api/seats/{id}:
  *   delete:
  *     summary: Elimina un asiento por su ID.
  *     tags:
- *       - Asientos
+ *       - Seats
  *     parameters:
  *       - name: id
  *         in: path
@@ -298,24 +182,6 @@ router.put("/:id", async (req, res) => {
  *       500:
  *         description: Error al eliminar el usuario.
  */
-router.delete("/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    const [asientos] = await pool.query(
-      "SELECT * FROM Asientos WHERE asiento_id = ?",
-      [id]
-    );
-    if (asientos.length === 0) {
-      return res.status(404).json({ error: "Asiento no encontrado" });
-    }
-    const [rows, fields] = await pool.query(
-      "DELETE FROM Asientos WHERE asiento_id = ?",
-      [id]
-    );
-    res.json({ message: "Asiento eliminado exitosamente" });
-  } catch (error) {
-    console.error(error);
-  }
-});
+router.delete("/:id", seatsController.deleteSeat);
 
 module.exports = router;
