@@ -2,6 +2,122 @@ const pool = require("../config/connection");
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcrypt");
 
+// Función para obtener todos los usuarios
+const getAllUsuarios = async (req, res) => {
+  try {
+    const [rows, fields] = await pool.query("SELECT * FROM Usuarios");
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+// Función para obtener un usuario por ID
+const getUsuarioById = async (req, res) => {
+  const usuarioId = req.params.id;
+  try {
+    const [rows, fields] = await pool.query(
+      "SELECT * FROM Usuarios WHERE usuario_id = ?",
+      [usuarioId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    res.json(rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+// Función para eliminar un usuario por ID
+const deleteUsuarioById = async (req, res) => {
+  const usuarioId = req.params.id;
+  try {
+    const [result] = await pool.query(
+      "DELETE FROM Usuarios WHERE usuario_id = ?",
+      [usuarioId]
+    );
+
+    if (result.affectedRows > 0) {
+      res.status(200).json({ message: "Usuario eliminado exitosamente" });
+    } else {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+  } catch (error) {
+    console.error("Error al ejecutar la consulta:", error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// Función para actualizar un usuario por ID
+const updateUsuarioById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [users] = await pool.query(
+      "SELECT * FROM Usuarios WHERE usuario_id = ?",
+      [id]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    const user = users[0];
+
+    const nombre = req.body.nombre || user.nombre;
+    const email = req.body.email || user.email;
+    let contrasena = req.body.contrasena
+      ? hashPassword(req.body.contrasena)
+      : user.contrasena;
+    const telefono = req.body.telefono || user.telefono;
+    const rol_id = req.body.rol_id || user.rol_id;
+    const membresia_id = req.body.membresia_id || user.membresia_id;
+    const activo = req.body.activo || user.activo;
+    const last_name = req.body.last_name || user.last_name;
+    const fotoPerfil = req.body.fotoPerfil || user.fotoPerfil;
+
+    const values = [
+      nombre,
+      email,
+      contrasena,
+      telefono,
+      rol_id,
+      membresia_id,
+      activo,
+      last_name,
+      fotoPerfil,
+      id,
+    ];
+
+    const updateUserQuery =
+      "UPDATE Usuarios SET nombre = ?, email = ?, contrasena = ?, telefono = ?, rol_id = ?, membresia_id = ?, activo = ?, last_name = ?, fotoPerfil = ? WHERE usuario_id = ?";
+
+    const [result] = await pool.query(updateUserQuery, values);
+
+    if (result.affectedRows > 0) {
+      const [updatedUsers] = await pool.query(
+        "SELECT * FROM Usuarios WHERE usuario_id = ?",
+        [id]
+      );
+      const updatedUser = updatedUsers[0];
+
+      res.status(200).json({
+        message: "Usuario actualizado correctamente",
+        user: updatedUser,
+      });
+    } else {
+      res.status(500).json({ error: "Error al actualizar el usuario" });
+    }
+  } catch (error) {
+    console.error("Error actualizando usuario:", error);
+    res.status(500).json({ error: "Error al actualizar el usuario" });
+  }
+};
+
+// Registrar nuevo usuario
 const userController = {
   register: async (req, res) => {
     const { nombre, email, last_name, contrasena, telefono, rol_id } = req.body;
@@ -62,4 +178,10 @@ const userController = {
   },
 };
 
-module.exports = userController;
+module.exports = {
+  userController,
+  getAllUsuarios,
+  getUsuarioById,
+  deleteUsuarioById,
+  updateUsuarioById,
+};
